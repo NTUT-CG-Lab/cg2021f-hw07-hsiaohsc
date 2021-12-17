@@ -54,16 +54,22 @@
 		</div>
 		<div id="info"> 等待 Dicom... </div>
 		<div id="size"></div>
-		<div><img id="pic"></div>
+		<!-- <div><img id="pic"></div> -->
+		<div><canvas id="pic"></canvas></div>
 		<div> 
 			<input style="width:500px" type="text" placeholder="檔名_長_寬_高_uint<位元>" id="file-name"> 
 		</div>
 		<div>
 			<a 
 				class="my-btn disabled"
+				id="download-uint8-button"
+				target="_blank"
+			> 下載 RAW 檔案(8bit)</a>
+			<a 
+				class="my-btn disabled"
 				id="download-button"
 				target="_blank"
-			> 下載 RAW 檔案</a>
+			> 下載 RAW 檔案(16bit)</a>
 		</div>
 		
 		
@@ -95,26 +101,64 @@
 					 * 組成一個真正有序的 object
 					*/
 					dicom2Raw.build();
-					document.getElementById('info').innerText = '讀取成功';
+					document.getElementById('info').innerText = '讀取成功，轉換中...';
 					
 					var dimension = dicom2Raw.getDim();
 					document.getElementById('size').innerText = '尺寸: ' + dimension.x + ' x ' + dimension.y + ' x ' + dimension.z;
 					
 					dicom2Raw.concatnate(function(){
 						document.getElementById('download-button').setAttribute('class', 'my-btn allow');
+						document.getElementById('download-uint8-button').setAttribute('class', 'my-btn allow');
 
 						document.getElementById('info').innerText = '轉換完成';
-						document.getElementById('file-name').value = 'Out_'+dimension.x + '_' + dimension.y + '_' + dimension.z + '_uint16';
+						document.getElementById('file-name').value = 'Out_' + dimension.x + '_' + dimension.y + '_' + dimension.z + '_uint';
 
-						// document.getElementById('pic').src = dicom2Raw.getImagePixel(2);
-						// console.log(dicom2Raw.getImagePixel(1))
+						const middle = Math.floor(dimension.z/2)
+						console.log(middle)
+						let pic_data = new Uint8ClampedArray(dicom2Raw.getImagePixel(middle));
+						console.log(pic_data);
+						tempData = new Uint8ClampedArray( dimension.x * dimension.y * 4 );
+						for (let i = 0; i < pic_data.length; i += 2) {
+							let count = i/2*4;
+							// tempData[count] = pic_data[i] >> 24 & 255;
+							// tempData[count+1] = pic_data[i] >> 16 & 255;
+							// tempData[count+2] = pic_data[i] >> 8 & 255;
+							tempData[count] = pic_data[i];
+							tempData[count+1] = pic_data[i];
+							tempData[count+2] = pic_data[i];
+
+							// tempData[count+3] = 255 - pic_data[i+1];
+							tempData[count+3] = 255;
+							
+						}
+						// pic_data = new Uint8ClampedArray(pic_data);
+						// console.log(pic_data);
+						console.log(tempData);
+						// let imageData = new ImageData(pic_data, 512);
+						let imageData = new ImageData(tempData, 512);
+						
+						const canvas = document.getElementById('pic');
+						canvas.setAttribute("width", dimension.x);
+						canvas.setAttribute("height", dimension.y);
+						const ctx = canvas.getContext('2d');
+						// Draw image data to the canvas
+						ctx.putImageData(imageData, 0, 0);
+						console.log("Done...")
+						document.getElementById('info').innerText = '轉換完成';
+						
 						document.getElementById('download-button').addEventListener('click', function(){
 							var filename = document.getElementById('file-name').value;
 							Dicom2Raw.downloadData(
 								filename + '.raw',
-								dicom2Raw.rawData
+								new Uint16Array(dicom2Raw.rawData)
 							);
-							// console.log(dicom2Raw.rawData)
+						});
+						document.getElementById('download-uint8-button').addEventListener('click', function(){
+							var filename = document.getElementById('file-name').value;
+							Dicom2Raw.downloadData(
+								filename + '.raw',
+								new Uint8Array(dicom2Raw.rawData)
+							);
 						});
 					});
 				}
@@ -169,8 +213,8 @@
 				so.addChild("成功讀取範例程式所附的 DICOM 檔案", 6, true);
 				so.addChild("轉換 DICOM 序列為 RAW 檔案", 1, true);
 				so.addChild("成功下載轉換好的 RAW 檔案", 1, true);
-				so.addChild("可下載 8 bit 或 16 bit 的 RAW 檔案", 1, false);
-				so.addChild("在網頁中顯示中間的圖像", 1, false);
+				so.addChild("可下載 8 bit 或 16 bit 的 RAW 檔案", 1, true);
+				so.addChild("在網頁中顯示中間的圖像", 1, true);
 				
 				so.renderModal(
 					document.body,
